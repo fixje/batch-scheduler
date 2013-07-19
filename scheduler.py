@@ -6,6 +6,7 @@ import os
 import re
 import argparse
 import multiprocessing
+import subprocess
 from datetime import datetime
 
 
@@ -57,8 +58,12 @@ def main():
                          to execute (one per line)")
     parser.add_argument("-s", "--simulate", required=False, action="store_true",
                         help="Only print commands, don't run them")
+    parser.add_argument("-e", "--execute", required=False, action="store_true",
+                        help="instead of reading the input file, execute it and take \
+                              its output as commands")
     args = parser.parse_args()
 
+    execute = args.execute
     simulate = args.simulate
     input_file = args.input_file
     num_cpus = multiprocessing.cpu_count()
@@ -69,8 +74,12 @@ def main():
     pool = multiprocessing.Pool(process_limit)
     result_set = []
 
-    with open(input_file, "r") as f:
-        cmds = [l for l in f]
+    if not execute:
+        with open(input_file, "r") as f:
+            cmds = [l for l in f]
+    else:
+        ostr = str(subprocess.check_output(input_file))
+        cmds = ostr.split("\n")
 
     for c in cmds:
         if simulate:
