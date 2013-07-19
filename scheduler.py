@@ -27,7 +27,7 @@ def print_p(string, color=None):
     print "%s - %s%s\033[0m" % (n.strftime("%Y-%m-%d %H:%M:%S"), ccode, string)
 
 
-def run_functor(functor, arg1):
+def run_functor(functor, *args):
     """
     Given a no-argument functor, run it and return its result. We can
     use this with multiprocessing.map and map it over a list of job
@@ -37,13 +37,14 @@ def run_functor(functor, arg1):
     """
     import traceback
     try:
-        return functor(arg1)
+        return functor(*args)
     except:
         raise Exception("".join(traceback.format_exception(*sys.exc_info())))
 
 
-def run_command(cmdstr):
+def run_command(cmdstr, sleeptime=0):
     cmd_print = cmdstr.replace("\n", "")
+    os.system("sleep %d" % sleeptime)
     print_p("Running \"%s\"" % cmd_print, "yellow")
     ret = os.system(cmdstr)
     print_p("Command \"%s\" finished with status %d" % (cmd_print, ret), "yellow")
@@ -61,11 +62,14 @@ def main():
     parser.add_argument("-e", "--execute", required=False, action="store_true",
                         help="instead of reading the input file, execute it and take \
                               its output as commands")
+    parser.add_argument("-d", "--delay", required=False, type=int,
+                        default=0, help="add a delay before each command.")
     args = parser.parse_args()
 
     execute = args.execute
     simulate = args.simulate
     input_file = args.input_file
+    delay = args.delay
     num_cpus = multiprocessing.cpu_count()
     process_limit = args.cores[0] if args.cores is not None else num_cpus
     process_limit = min(process_limit, num_cpus)
@@ -81,17 +85,20 @@ def main():
         ostr = str(subprocess.check_output(input_file))
         cmds = ostr.split("\n")
 
+    i = 0
     for c in cmds:
         if simulate:
             print_p("NOT running command \"%s\"" % c.replace("\n", ""), "yellow")
         else:
-            result_set.append(pool.apply_async(run_functor, [run_command, c]))
+            result_set.append(pool.apply_async(run_functor,
+                                               [run_command, c, i * delay]))
+        i += 1
 
     pool.close()
     pool.join()
     for r in result_set:
         r.get() # raise exceptions if any
-    
+
     print_p("All jobs are finished", "cyan")
 
 
