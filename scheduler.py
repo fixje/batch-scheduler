@@ -55,8 +55,11 @@ def main():
                         CPU cores to use")
     parser.add_argument("input_file", help="A file containing the shell commands \
                          to execute (one per line)")
+    parser.add_argument("-s", "--simulate", required=False, action="store_true",
+                        help="Only print commands, don't run them")
     args = parser.parse_args()
 
+    simulate = args.simulate
     input_file = args.input_file
     num_cpus = multiprocessing.cpu_count()
     process_limit = args.cores[0] if args.cores is not None else num_cpus
@@ -70,7 +73,10 @@ def main():
         cmds = [l for l in f]
 
     for c in cmds:
-        result_set.append(pool.apply_async(run_functor, [run_command, c]))
+        if simulate:
+            print_p("NOT running command \"%s\"" % c.replace("\n", ""), "yellow")
+        else:
+            result_set.append(pool.apply_async(run_functor, [run_command, c]))
 
     pool.close()
     pool.join()
