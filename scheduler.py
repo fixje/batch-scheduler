@@ -50,6 +50,37 @@ def run_command(cmdstr, sleeptime=0):
     print_p("Command \"%s\" finished with status %d" % (cmd_print, ret), "yellow")
 
 
+def run_multi(cmds, use_max_cores=None, simulate=False, delay=0,
+              verbose=False):
+    num_cpus = multiprocessing.cpu_count()
+    process_limit = use_max_cores if use_max_cores is not None else num_cpus
+    process_limit = min(process_limit, num_cpus)
+
+    if verbose:
+        print_p("Using %d CPUs" % process_limit, "yellow")
+        print_p("Total tasks to run: %d" % len(cmds), "cyan")
+
+    pool = multiprocessing.Pool(process_limit)
+    result_set = []
+
+    i = 0
+    for c in cmds:
+        if simulate:
+            print_p("NOT running command \"%s\"" % c.replace("\n", ""), "yellow")
+        else:
+            result_set.append(pool.apply_async(run_functor,
+                                               [run_command, c, i * delay]))
+        i += 1
+
+    pool.close()
+    pool.join()
+    for r in result_set:
+        r.get()  # raise exceptions if any
+
+    if verbose:
+        print_p("All jobs are finished", "cyan")
+
+
 def main():
     parser = argparse.ArgumentParser(description="start parallel jobs")
     parser.add_argument('-n', '--cores', nargs=1, type=int,
@@ -70,13 +101,7 @@ def main():
     simulate = args.simulate
     input_file = args.input_file
     delay = args.delay
-    num_cpus = multiprocessing.cpu_count()
-    process_limit = args.cores[0] if args.cores is not None else num_cpus
-    process_limit = min(process_limit, num_cpus)
-    print_p("Using %d CPUs" % process_limit, "yellow")
-
-    pool = multiprocessing.Pool(process_limit)
-    result_set = []
+    cores = args.cores[0] if args.cores is not None else None
 
     if not execute:
         with open(input_file, "r") as f:
@@ -85,21 +110,7 @@ def main():
         ostr = str(subprocess.check_output(input_file))
         cmds = ostr.split("\n")
 
-    i = 0
-    for c in cmds:
-        if simulate:
-            print_p("NOT running command \"%s\"" % c.replace("\n", ""), "yellow")
-        else:
-            result_set.append(pool.apply_async(run_functor,
-                                               [run_command, c, i * delay]))
-        i += 1
-
-    pool.close()
-    pool.join()
-    for r in result_set:
-        r.get() # raise exceptions if any
-
-    print_p("All jobs are finished", "cyan")
+    run_multi(cmds, cores, simulate, delay, True)
 
 
 if __name__ == '__main__':
